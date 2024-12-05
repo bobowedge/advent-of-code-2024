@@ -1,9 +1,9 @@
 from collections import defaultdict
-from functools import cmp_to_key
+from functools import cmp_to_key, partial
 
 def parse_data(data):
     rules = defaultdict(set)
-    orders = []
+    updates = []
     for line in data:
         line = line.strip()
         if len(line) == 0:
@@ -14,49 +14,49 @@ def parse_data(data):
             b = int(b)
             rules[a].add(b)
         else:
-            order = [int(a) for a in line.split(",")]
-            orders.append(order)
-    return rules, orders
+            page = [int(a) for a in line.split(",")]
+            updates.append(page)
+    return rules, updates
+
+
+def compare_rules(rules, a, b):
+    """
+    Comparison using the input rules
+    Returns -1 if a|b
+    Returns  1 if b|a
+    Returns 0 otherwise
+    """
+    if a in rules and b in rules[a]:
+        return -1
+    if b in rules and a in rules[b]:
+        return 1
+    return 0
 
 
 def solution1(data):
-    rules, orders = parse_data(data)
-    score = 0
-    for order in orders:
-        good = True
-        for idx1, num1 in enumerate(order):
-            if num1 not in rules:
-                continue
-            for num2 in rules[num1]:
-                if num2 in order and order.index(num2) < idx1:
-                    good = False
-                    break
-            if not good:
-                break
-        if good:
-            midpt = (len(order) - 1)//2
-            score += order[midpt]
-    return score
+    # A cleaner version of first solution that used a lot of loops
+    rules, updates = parse_data(data)
+    compare = partial(compare_rules, rules)
+    middle_page_sum = 0
+    for update in updates:
+        sorted_update = sorted(update, key=cmp_to_key(compare))
+        if sorted_update == update:
+            midpt = (len(update) - 1)//2
+            middle_page_sum += update[midpt]
+    return middle_page_sum
 
 
 def solution2(data):
-    rules, orders = parse_data(data)
-    score = 0
-
-    def less(a, b):
-        if a in rules and b in rules[a]:
-            return -1
-        if b in rules and a in rules[b]:
-            return 1
-        return 0
-
-    for order in orders:
-        sorted_order = sorted(order, key=cmp_to_key(less))
-        if sorted_order == order:
+    rules, updates = parse_data(data)
+    compare = partial(compare_rules, rules)
+    middle_page_sum = 0
+    for update in updates:
+        sorted_update = sorted(update, key=cmp_to_key(compare))
+        if sorted_update == update:
             continue
-        midpt = (len(sorted_order) - 1)//2
-        score += sorted_order[midpt]
-    return score
+        midpt = (len(sorted_update) - 1)//2
+        middle_page_sum += sorted_update[midpt]
+    return middle_page_sum
     
     
 test_data = """47|53
