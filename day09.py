@@ -1,3 +1,11 @@
+def checksum(memory):
+    value = 0
+    for idx, file_id in enumerate(memory):
+        if file_id is None:
+            continue
+        value += idx * file_id
+    return value
+
 def solution1(data):
     memory = []
     for idx, value in enumerate(data):
@@ -7,59 +15,51 @@ def solution1(data):
         else:
             memory.extend([None] * value)
 
-    first_bad = memory.index(None)
-    last_good = len(memory) - 1
-    while first_bad < last_good:
-        memory[first_bad] = memory[last_good]
-        memory[last_good] = None
-        while memory[last_good] is None:
-            last_good -= 1
-        first_bad = memory.index(None, first_bad)
-    checksum = 0
-    for idx, val in enumerate(memory):
-        if val is None:
-            break
-        checksum += idx * val
-    return checksum
+    first_empty = memory.index(None)
+    last_block = len(memory) - 1
+    while first_empty < last_block:
+        memory[first_empty] = memory[last_block]
+        memory[last_block] = None
+        while memory[last_block] is None:
+            last_block -= 1
+        first_empty = memory.index(None, first_empty)
+
+    return checksum(memory)
 
 
 def solution2(data):
     memory = []
     file_blocks = {}
     position = 0
-    for idx, value in enumerate(data):
-        value = int(value)
+    for idx, num_blocks in enumerate(data):
+        num_blocks = int(num_blocks)
         if idx % 2 == 0:
-            memory.extend([idx//2] * value)
-            file_blocks[idx//2] = (position, value)
+            memory.extend([idx//2] * num_blocks)
+            file_blocks[idx//2] = (position, num_blocks)
         else:
-            memory.extend([None] * value)
-        position += value
+            memory.extend([None] * num_blocks)
+        position += num_blocks
 
-    for idx in sorted(file_blocks.keys(), reverse=True):
-        file_position, file_size = file_blocks[idx]
-        bad = memory.index(None)
-        size = 1
-        while bad < file_position and bad != -1:
-            while memory[bad + size] is None:
+    for _, (file_position, file_size) in sorted(file_blocks.items(), reverse=True):
+        # Find the next set of empty blocks that will fit this file
+        empty = memory.index(None)
+        while empty < file_position and empty != -1:
+            size = 1
+            while memory[empty + size] is None:
                 size += 1
             if size >= file_size:
                 break
-            else:
-                bad = memory.index(None, bad + size)
-                size = 1
-        if bad > file_position or bad == -1:
+            empty = memory.index(None, empty + size)
+        
+        # If no such empty blocks, go down to the next file
+        if empty > file_position or empty == -1:
             continue
-        for pos in range(file_size):
-            memory[bad + pos] = idx
-            memory[file_position + pos] = None
 
-    checksum = 0
-    for idx, val in enumerate(memory):
-        if val is None:
-            continue
-        checksum += idx * val
-    return checksum
+        # Swap the blocks
+        memory[empty : empty + file_size] = memory[file_position : file_position + file_size]
+        memory[file_position: file_position + file_size] = [None] * file_size
+
+    return checksum(memory)
     
     
 test_data = """2333133121414131402"""
@@ -67,9 +67,4 @@ assert(solution1(test_data) == 1928)
 assert(solution2(test_data) == 2858)
 my_data = open("data/day09.txt").read()
 print(f"Solution 1: {solution1(my_data)}")
-
-from time import process_time
-t1 = process_time()
 print(f"Solution 2: {solution2(my_data)}")
-t2 = process_time()
-print(t2 - t1)
