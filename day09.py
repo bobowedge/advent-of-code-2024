@@ -36,32 +36,24 @@ def solution2(data):
             memory.extend([None] * value)
         position += value
 
-    insert = True
-    while insert:
-        first_bad = memory.index(None)
+    for idx in sorted(file_blocks.keys(), reverse=True):
+        file_position, file_size = file_blocks[idx]
+        bad = memory.index(None)
         size = 1
-        while memory[first_bad + size] is None:
-            size += 1
-        
-        insert = False
-        for idx in sorted(file_blocks.keys(), reverse=True):
-            file_position, file_size = file_blocks[idx]
-            bad = memory.index(None)
-            size = 1
-            while bad < file_position and bad != -1:
-                while memory[bad + size] is None:
-                    size += 1
-                if size >= file_size:
-                    break
-                else:
-                    bad = memory.index(None, bad + size)
-                    size = 1
-            if bad > file_position or bad == -1:
-                continue
-            for pos in range(file_size):
-                memory[bad + pos] = idx
-                memory[file_position + pos] = None
-                
+        while bad < file_position and bad != -1:
+            while memory[bad + size] is None:
+                size += 1
+            if size >= file_size:
+                break
+            else:
+                bad = memory.index(None, bad + size)
+                size = 1
+        if bad > file_position or bad == -1:
+            continue
+        for pos in range(file_size):
+            memory[bad + pos] = idx
+            memory[file_position + pos] = None
+
     checksum = 0
     for idx, val in enumerate(memory):
         if val is None:
@@ -75,4 +67,9 @@ assert(solution1(test_data) == 1928)
 assert(solution2(test_data) == 2858)
 my_data = open("data/day09.txt").read()
 print(f"Solution 1: {solution1(my_data)}")
+
+from time import process_time
+t1 = process_time()
 print(f"Solution 2: {solution2(my_data)}")
+t2 = process_time()
+print(t2 - t1)
