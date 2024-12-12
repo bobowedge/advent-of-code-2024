@@ -1,109 +1,96 @@
 from collections import defaultdict
 
+ORTHOGONAL = {(0, 1), (0, -1), (1, 0), (-1, 0)}
+
+def neighbor_generator(value: tuple):
+    for dx, dy in ORTHOGONAL:
+        # plot
+        if type(value[0]) is int:
+            yield (value[0] + dx, value[1] + dy)
+        # fence
+        else:
+            yield ((value[0][0] + dx, value[0][1] + dy), (value[1][0] + dx, value[1][1] + dy))
+
+
 def parse_data(data):
-    regions = defaultdict(set)
+    """Produces dict of letters to the set of all garden plots with that letter"""
+    letter_plots = defaultdict(set)
     for row, line in enumerate(data):
         for col, char in enumerate(line):
-            regions[char].add((row, col))
-    return regions
+            letter_plots[char].add((row, col))
+    return letter_plots
 
-def area(bucket):
-    return len(bucket)
+def find_connected_components(plots: set):
+    """Find the connected components of a set"""
+    components = list()
+    component = [plots.pop()]
+    while len(plots) > 0:
+        component_size = len(component)
+        # Loop over the current members of the component
+        for idx in range(component_size):
+            # Check the neighbors
+            for neighbor in neighbor_generator(component[idx]):
+                # If neighbor is in plots, add to component
+                if neighbor in plots:
+                    component.append(neighbor)
+                    plots.discard(neighbor)
+        # If we didn't add anything, component is complete
+        if component_size == len(component):
+            components.append(set(component))
+            # Reset if there are some more plots to do
+            if len(plots) > 0:
+                component = [plots.pop()]
+    if len(component) > 0:
+        components.append(set(component))
+    return components
 
-def perimeter(bucket):
+def area(region):
+    return len(region)
+
+def perimeter(region):
     length = 0
-    for bx, by in bucket:
-        for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
-            if (bx + dx, by + dy) not in bucket:
+    for plot in region:
+        for neighbor in neighbor_generator(plot):
+            if neighbor not in region:
                 length += 1
     return length
 
 def solution1(data):
-    regions = parse_data(data)
+    letter_plots = parse_data(data)
 
-    buckets = list()
-    for region in regions.values():
-        bucket = list()
-        bucket.append(region.pop())
-        while len(region) > 0:
-            lenbucket = len(bucket)
-            for i in range(len(bucket)):
-                bx, by = bucket[i]
-                for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
-                    new_location = (bx + dx, by + dy)
-                    if new_location in region:
-                        region.discard(new_location)
-                        bucket.append(new_location)
-            if lenbucket == len(bucket):
-                buckets.append(set(bucket))
-                if len(region) > 0:
-                    bucket = list()
-                    bucket.append(region.pop())
-        if len(bucket) > 0:
-            buckets.append(set(bucket))
+    regions = list()
+    for plots in letter_plots.values():
+        regions.extend(find_connected_components(plots))
+
     price = 0
-    for bucket in buckets:
-        price += area(bucket) * perimeter(bucket)
+    for region in regions:
+        price += area(region) * perimeter(region)
     return price
 
-def sides(bucket):
-    sides_set = set()
-    for bx, by in bucket:
-        for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
-            if (bx + dx, by + dy) not in bucket:
-                inside = (bx, by)
-                outside = (bx + dx, by + dy) 
-                sides_set.add((inside, outside))
-    
-    bucket = list()
-    bucket.append(sides_set.pop())
-    sides = 0
-    while len(sides_set) > 0:
-        lenbucket = len(bucket)
-        for i in range(lenbucket):
-            inside, outside = bucket[i]
-            for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
-                new_inside = (inside[0] + dx, inside[1] + dy)
-                new_outside = (outside[0] + dx, outside[1] + dy)
-                if (new_inside, new_outside) in sides_set:
-                    sides_set.discard((new_inside, new_outside))
-                    bucket.append((new_inside, new_outside))
-        if lenbucket == len(bucket):
-            sides += 1
-            if len(sides_set) > 0:
-                bucket = list()
-                bucket.append(sides_set.pop())
-    if len(bucket) > 0:
-        sides += 1
-    return sides
+def sides(region):
+    """Calculate the number of sides for the region"""
+
+    # Find all the fences for the region
+    fences = set()
+    for plot in region:
+        for neighbor in neighbor_generator(plot):
+            if neighbor not in region:
+                # Need orientation of fence (inside, outside)
+                fences.add((plot, neighbor))
+
+    # Count the connect components of the fences (similar code to find_connected_components)
+    return len(find_connected_components(fences))
 
 def solution2(data):
-    regions = parse_data(data)
+    letter_plots = parse_data(data)
 
-    buckets = list()
-    for region in regions.values():
-        bucket = list()
-        bucket.append(region.pop())
-        while len(region) > 0:
-            lenbucket = len(bucket)
-            for i in range(lenbucket):
-                bx, by = bucket[i]
-                for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
-                    new_location = (bx + dx, by + dy)
-                    if new_location in region:
-                        region.discard(new_location)
-                        bucket.append(new_location)
-            if lenbucket == len(bucket):
-                buckets.append(set(bucket))
-                if len(region) > 0:
-                    bucket = list()
-                    bucket.append(region.pop())
-        if len(bucket) > 0:
-            buckets.append(set(bucket))
+    regions = list()
+    for plots in letter_plots.values():
+        regions.extend(find_connected_components(plots))
 
     price = 0
-    for bucket in buckets:
-        price += area(bucket) * sides(bucket)
+    for region in regions:
+        price += area(region) * sides(region)
     return price
 
     
@@ -117,10 +104,6 @@ VVIIICJJEE
 MIIIIIJJEE
 MIIISIJEEE
 MMMISSJEEE""".splitlines()
-# test_data = """AAAA
-# BBCD
-# BBCC
-# EEEC""".splitlines()
 assert(solution1(test_data) == 1930)
 assert(solution2(test_data) == 1206)
 my_data = open("data/day12.txt").read().splitlines()
