@@ -1,71 +1,64 @@
+from functools import cache
+
 def parse_data(data):
-    patterns = set()
+    patterns = None
     designs = []
     for line in data:
         line = line.strip()
         if len(line) == 0:
             continue
         if ',' in line:
-            patterns = set([x.strip() for x in line.split(",")])
+            patterns = tuple([x.strip() for x in line.split(",")])
         else:
             designs.append(line)
     return patterns, designs
 
-def is_possible(design, patterns, cache):
+@cache
+def is_possible(design, patterns):
     """
     Is this design possible with the given patterns?
     Use the cache to store previously seen designs
     """
-    if len(design) == 0 or design in patterns:
+    if len(design) == 0:
         return True
-    possible = cache.get(design, None)
-    if possible is not None:
-        return possible
     
     possible = False
     for pattern in patterns:
         if pattern == design[:len(pattern)]:
             suffix = design[len(pattern):]
-            possible ^= is_possible(suffix, patterns, cache)
+            possible ^= is_possible(suffix, patterns)
             if possible:
                 break
-    cache[design] = possible
     return possible
             
 def solution1(data):
     patterns, designs = parse_data(data)
     count = 0
-    cache = {}
     for design in designs:
-        possible = is_possible(design, patterns, cache)
-        if possible:
+        if is_possible(design, patterns):
             count += 1
     return count
 
-def num_ways(design, patterns, cache):
+@cache
+def num_ways(design, patterns):
     """
     How many ways can this design be made by the patterns?
     Use a cache to store previous values
     """
     if len(design) == 0:
         return 1
-    ways = cache.get(design, None)
-    if ways is not None:
-        return ways
     ways = 0
     for pattern in patterns:
         if pattern == design[:len(pattern)]:
             suffix = design[len(pattern):]
-            ways += num_ways(suffix, patterns, cache)
-    cache[design] = ways
+            ways += num_ways(suffix, patterns)
     return ways
 
 def solution2(data):
     patterns, designs = parse_data(data)
     count = 0
-    cache = {}
     for design in designs:
-        count += num_ways(design, patterns, cache)
+        count += num_ways(design, patterns)
     return count
     
 test_data = """r, wr, b, g, bwu, rb, gb, br
