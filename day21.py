@@ -1,9 +1,10 @@
 from collections import defaultdict
+from functools import cache
 import heapq
 
-ORTHOGONAL = {(1, 0), (-1, 0), (0, 1), (0, -1)}
+DIRECTIONS = {(1, 0): 'v', (-1, 0): '^', (0, 1): '>', (0, -1): '<'}
 
-numeric_keypad = {
+NUMPAD = {
     (0, 0): '7',
     (0, 1): '8',
     (0, 2): '9',
@@ -16,33 +17,39 @@ numeric_keypad = {
     (3, 1): '0',
     (3, 2): 'A',
 }
+NUMPAD.update({value: key for key, value in NUMPAD.items()})
 
-directional_keypad = {
+DPAD = {
     (0, 1): '^',
     (0, 2): 'A',
     (1, 0): '<',
     (1, 1): 'v',
     (1, 2): '>',
 }
+DPAD.update({value: key for key, value in DPAD.items()})
 
-def dijkstra(start, padset):
+def dijkstra(source, target, keypad):
+    start = keypad[source]
+    end = keypad[target]
     queue = [(0, start)]
     seen = set()
     dist = {}
     prev = defaultdict(set)
-    for pt in padset:
+    for pt in keypad:
         dist[pt] = 25
     dist[start] = 0
     while len(queue) > 0:
         length, point = heapq.heappop(queue)
+        if point == end:
+            break
         if point in seen:
             continue
         seen.add(point)
-        for d in ORTHOGONAL:
+        for d in DIRECTIONS:
             px = point[0] + d[0]
             py = point[1] + d[1]
             new_point = (px, py)
-            if new_point not in padset:
+            if new_point not in keypad:
                 continue
             alt = length + 1
             if alt < dist[new_point]:
@@ -51,164 +58,87 @@ def dijkstra(start, padset):
                 prev[new_point] = set([point])
             if alt == dist[new_point]:
                 prev[new_point].add(point)
-    return dist, prev
-
-def build_numeric_keypad_map():
-    padset = [(row, col) for row in range(4) for col in range(3)]
-    padset.remove((3, 0))
-
     paths = []
-    for pt1 in padset:
-        distances, points = dijkstra(pt1, padset)
-        for pt2 in padset:
-            if pt1 == pt2:
-                continue
-            queue = [[pt2]]
-            while len(queue) > 0:
-                path = queue.pop()
-                if len(path) > distances[pt2] + 1:
-                    continue
-                if path[-1] == pt1:
-                    paths.append(tuple(path))
-                else:
-                    for pt in points[path[-1]]:
-                        new_path = path + [pt]
-                        queue.append(new_path)
+    queue = [[end]]
+    while len(queue) > 0:
+        path = queue.pop()
+        if len(path) > dist[end] + 1:
+            continue
+        if path[-1] == start:
+            path.reverse()
+            paths.append(tuple(path))
+        else:
+            for pt in prev[path[-1]]:
+                new_path = path + [pt]
+                queue.append(new_path)
 
-    numeric_keypad_map = defaultdict(set)
+    dpaths = []
     for path in paths:
-        val1 = numeric_keypad[path[0]]
-        val2 = numeric_keypad[path[-1]]
-        pathstr = ""
-        for (x1, y1), (x2, y2) in zip(path[:-1], path[1:]):
-            drow = x2 - x1
-            dcol = y2 - y1
-            if drow == -1:
-                pathstr += "^"
-            elif drow == 1:
-                pathstr += "v"
-            elif dcol == -1:
-                pathstr += "<"
-            else:
-                pathstr += ">"
-        numeric_keypad_map[(val1, val2)].add(pathstr)
-    
-    for key in "A0123456789":
-        numeric_keypad_map[(key, key)] = set([""])
+        dpath = ""
+        for pt1, pt2 in zip(path[:-1], path[1:]):
+            d1 = pt2[0] - pt1[0]
+            d2 = pt2[1] - pt1[1]
+            dpath += DIRECTIONS[(d1, d2)]
+        dpath += "A"
+        dpaths.append(dpath)
+    return dpaths
 
-    return numeric_keypad_map
+@cache
+def cost_dpad(source: str, target: str, N: int, last: int):
+    if N == last:
+        return 1
+    else:
+        best = None
+        for path in dijkstra(source, target, DPAD):
+            length = 0
+            current = 'A'
+            for point in path:
+                length += cost_dpad(current, point, N + 1, last)
+                current = point
+            if best is None or length < best:
+                best = length
+        return best
 
-def build_directional_keypad_map():
-    padset = [(0, 1), (0, 2), (1, 0), (1, 1), (1, 2)]
-
-    paths = []
-    for pt1 in padset:
-        distances, points = dijkstra(pt1, padset)
-        for pt2 in padset:
-            if pt1 == pt2:
-                continue
-            queue = [[pt2]]
-            while len(queue) > 0:
-                path = queue.pop()
-                if len(path) > distances[pt2] + 1:
-                    continue
-                if path[-1] == pt1:
-                    paths.append(tuple(path))
-                else:
-                    for pt in points[path[-1]]:
-                        new_path = path + [pt]
-                        queue.append(new_path)
-
-    directional_keypad_map = defaultdict(set)
-    for path in paths:
-        val1 = directional_keypad[path[0]]
-        val2 = directional_keypad[path[-1]]
-        pathstr = ""
-        for (x1, y1), (x2, y2) in zip(path[:-1], path[1:]):
-            drow = x2 - x1
-            dcol = y2 - y1
-            if drow == -1:
-                pathstr += "^"
-            elif drow == 1:
-                pathstr += "v"
-            elif dcol == -1:
-                pathstr += "<"
-            else:
-                pathstr += ">"
-        directional_keypad_map[(val1, val2)].add(pathstr)
-    
-    for key in "v^<>A":
-        directional_keypad_map[(key, key)] = set([""])
-    
-    return directional_keypad_map
-
-def next_subpaths(path, key_map):
-    subpaths = []
-    for edge in key_map[("A", path[0])]:
-        subpaths.append(edge + "A")
-    for keys in zip(path[:-1], path[1:]):
-        new_subpaths = []
-        for subpath in subpaths:
-            for value in key_map[keys]:
-                new_subpaths.append(subpath + value + "A")
-        subpaths = list(new_subpaths)
-    return subpaths
-
-def next_paths(paths, key_map):
-    new_paths = []
-    for path in paths:
-        new_paths += next_subpaths(path, key_map)
-    return new_paths
-
-def trim_paths(paths):
-    minlen = min([len(path) for path in paths])
-    return [path for path in paths if len(path) == minlen]
+def cost_numpad(source: str, target: str, last: int):
+    best = None
+    for path in dijkstra(source, target, NUMPAD):
+        length = 0
+        current = 'A'
+        for point in path:
+            length += cost_dpad(current, point, 1, last)
+            current = point
+        if best is None or length < best:
+            best = length
+    return best
 
 def solution1(data):
-    numkey_map = build_numeric_keypad_map()
-    dirkey_map = build_directional_keypad_map()
-
     complexity = 0
     for code in data:
-        paths = next_paths([code], numkey_map)
-        paths = trim_paths(paths)
-        for i in range(1):
-            paths = next_paths(paths, dirkey_map)
-            paths = trim_paths(paths)
-        paths = next_paths(paths, dirkey_map)
-
-        shortest = min([len(path) for path in paths])
+        shortest = 0
+        Acode = 'A' + code
+        for key1, key2 in zip(Acode[:-1], Acode[1:]):
+            shortest += cost_numpad(key1, key2, 3)
         numeric = int(code[:-1])
         complexity += shortest * numeric
     return complexity
-
 
 def solution2(data):
-    numkey_map = build_numeric_keypad_map()
-    dirkey_map = build_directional_keypad_map()
-
     complexity = 0
     for code in data:
-        paths = next_paths([code], numkey_map)
-        paths = trim_paths(paths)
-        for i in range(24):
-            paths = next_paths(paths, dirkey_map)
-            paths = trim_paths(paths)
-        paths = next_paths(paths, dirkey_map)
-        
-        shortest = min([len(path) for path in paths])
+        shortest = 0
+        Acode = 'A' + code
+        for key1, key2 in zip(Acode[:-1], Acode[1:]):
+            shortest += cost_numpad(key1, key2, 26)
         numeric = int(code[:-1])
         complexity += shortest * numeric
     return complexity
-    
-    
+
 test_data = """029A
 980A
 179A
 456A
 379A""".splitlines()
 assert(solution1(test_data) == 126384)
-# assert(solution2(test_data) == 0)
 my_data = open("data/day21.txt").read().splitlines()
 print(f"Solution 1: {solution1(my_data)}")
 print(f"Solution 2: {solution2(my_data)}")
